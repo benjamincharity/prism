@@ -13,6 +13,7 @@ use Prism\Prism\Contracts\PrismRequest;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismException;
 use Prism\Prism\Providers\Anthropic\Concerns\ExtractsCitations;
+use Prism\Prism\Providers\Anthropic\Concerns\ExtractsIterations;
 use Prism\Prism\Providers\Anthropic\Concerns\ExtractsProviderToolCalls;
 use Prism\Prism\Providers\Anthropic\Concerns\ExtractsText;
 use Prism\Prism\Providers\Anthropic\Concerns\ExtractsThinking;
@@ -36,7 +37,7 @@ use Prism\Prism\ValueObjects\Usage;
 
 class Text
 {
-    use CallsTools, ExtractsCitations, ExtractsProviderToolCalls, ExtractsText, ExtractsThinking, HandlesHttpRequests, ProcessesRateLimits;
+    use CallsTools, ExtractsCitations, ExtractsIterations, ExtractsProviderToolCalls, ExtractsText, ExtractsThinking, HandlesHttpRequests, ProcessesRateLimits;
 
     protected Response $tempResponse;
 
@@ -160,7 +161,8 @@ class Text
                 promptTokens: data_get($data, 'usage.input_tokens'),
                 completionTokens: data_get($data, 'usage.output_tokens'),
                 cacheWriteInputTokens: data_get($data, 'usage.cache_creation_input_tokens'),
-                cacheReadInputTokens: data_get($data, 'usage.cache_read_input_tokens')
+                cacheReadInputTokens: data_get($data, 'usage.cache_read_input_tokens'),
+                iterations: $this->extractIterations(data_get($data, 'usage.iterations'))
             ),
             meta: new Meta(
                 id: data_get($data, 'id'),

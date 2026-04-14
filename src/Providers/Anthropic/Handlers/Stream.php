@@ -11,6 +11,7 @@ use Illuminate\Support\Arr;
 use Prism\Prism\Concerns\CallsTools;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Exceptions\PrismStreamDecodeException;
+use Prism\Prism\Providers\Anthropic\Concerns\ExtractsIterations;
 use Prism\Prism\Providers\Anthropic\Maps\CitationsMapper;
 use Prism\Prism\Providers\Anthropic\ValueObjects\AnthropicStreamState;
 use Prism\Prism\Streaming\EventID;
@@ -42,7 +43,7 @@ use Throwable;
 
 class Stream
 {
-    use CallsTools;
+    use CallsTools, ExtractsIterations;
 
     protected AnthropicStreamState $state;
 
@@ -136,7 +137,8 @@ class Stream
                 promptTokens: $usageData['input_tokens'] ?? 0,
                 completionTokens: $usageData['output_tokens'] ?? 0,
                 cacheWriteInputTokens: $usageData['cache_creation_input_tokens'] ?? null,
-                cacheReadInputTokens: $usageData['cache_read_input_tokens'] ?? null
+                cacheReadInputTokens: $usageData['cache_read_input_tokens'] ?? null,
+                iterations: $this->extractIterations($usageData['iterations'] ?? null)
             ));
         }
 
@@ -239,11 +241,13 @@ class Stream
         // Update completion tokens if provided
         if (! empty($usageData) && $this->state->usage() instanceof Usage && isset($usageData['output_tokens'])) {
             $currentUsage = $this->state->usage();
+            $newIterations = $this->extractIterations($usageData['iterations'] ?? null);
             $this->state->withUsage(new Usage(
                 promptTokens: $currentUsage->promptTokens,
                 completionTokens: $usageData['output_tokens'],
                 cacheWriteInputTokens: $currentUsage->cacheWriteInputTokens,
-                cacheReadInputTokens: $currentUsage->cacheReadInputTokens
+                cacheReadInputTokens: $currentUsage->cacheReadInputTokens,
+                iterations: $newIterations ?? $currentUsage->iterations
             ));
         }
 

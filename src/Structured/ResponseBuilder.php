@@ -11,6 +11,7 @@ use Prism\Prism\ValueObjects\ProviderToolCall;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
+use Prism\Prism\ValueObjects\UsageIteration;
 
 readonly class ResponseBuilder
 {
@@ -136,6 +137,9 @@ readonly class ResponseBuilder
             thoughtTokens: $this->steps->contains(fn (Step $result): bool => $result->usage->thoughtTokens !== null)
                 ? $this->steps->sum(fn (Step $result): int => $result->usage->thoughtTokens ?? 0)
                 : null,
+            iterations: $this->steps->reduce(
+                fn (?array $carry, Step $result): ?array => UsageIteration::concat($carry, $result->usage->iterations)
+            ),
         );
     }
 }

@@ -11,12 +11,16 @@ use Illuminate\Contracts\Support\Arrayable;
  */
 readonly class Usage implements Arrayable
 {
+    /**
+     * @param  array<int, UsageIteration>|null  $iterations
+     */
     public function __construct(
         public int $promptTokens,
         public int $completionTokens,
         public ?int $cacheWriteInputTokens = null,
         public ?int $cacheReadInputTokens = null,
         public ?int $thoughtTokens = null,
+        public ?array $iterations = null,
     ) {}
 
     /**
@@ -31,6 +35,9 @@ readonly class Usage implements Arrayable
             'cache_write_input_tokens' => $this->cacheWriteInputTokens,
             'cache_read_input_tokens' => $this->cacheReadInputTokens,
             'thought_tokens' => $this->thoughtTokens,
+            'iterations' => $this->iterations === null
+                ? null
+                : array_map(fn (UsageIteration $iteration): array => $iteration->toArray(), $this->iterations),
         ];
     }
 }
