@@ -7,6 +7,7 @@ namespace Prism\Prism\Streaming;
 use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\ValueObjects\MessagePartWithCitations;
 use Prism\Prism\ValueObjects\Usage;
+use Prism\Prism\ValueObjects\UsageIteration;
 
 class StreamState
 {
@@ -42,6 +43,14 @@ class StreamState
     protected array $citations = [];
 
     protected ?Usage $usage = null;
+
+    /**
+     * Length of the usage.iterations array captured at the start of the
+     * current streaming step. Used so a provider's per-step "replace" of
+     * iterations (e.g. Anthropic's message_delta) can overwrite only the
+     * current step's entries while preserving iterations from prior steps.
+     */
+    protected int $currentStepIterationsOffset = 0;
 
     protected ?FinishReason $finishReason = null;
 
@@ -245,7 +254,61 @@ class StreamState
             completionTokens: $this->usage->completionTokens + $usage->completionTokens,
             cacheWriteInputTokens: ($this->usage->cacheWriteInputTokens ?? 0) + ($usage->cacheWriteInputTokens ?? 0),
             cacheReadInputTokens: ($this->usage->cacheReadInputTokens ?? 0) + ($usage->cacheReadInputTokens ?? 0),
-            thoughtTokens: ($this->usage->thoughtTokens ?? 0) + ($usage->thoughtTokens ?? 0)
+            thoughtTokens: ($this->usage->thoughtTokens ?? 0) + ($usage->thoughtTokens ?? 0),
+            iterations: self::mergeIterations($this->usage->iterations, $usage->iterations),
+        );
+
+        return $this;
+    }
+
+    /**
+     * Capture the current length of usage.iterations so a subsequent call to
+     * setCurrentStepIterations() knows where the current step's entries start.
+     * Call once per provider "step" before storing any iterations for that step.
+     */
+    public function markCurrentStepIterationsOffset(): self
+    {
+        $existing = $this->usage instanceof Usage ? ($this->usage->iterations ?? []) : [];
+        $this->currentStepIterationsOffset = count($existing);
+
+        return $this;
+    }
+
+    /**
+     * Replace the iterations belonging to the current step with $iterations.
+     * Iterations from prior steps (before the captured offset) are preserved.
+     *
+     * @param  array<int, UsageIteration>  $iterations
+     */
+    public function setCurrentStepIterations(array $iterations): self
+    {
+        $existing = $this->usage instanceof Usage ? ($this->usage->iterations ?? []) : [];
+        $priorIterations = array_slice(
+            $existing,
+            0,
+            $this->currentStepIterationsOffset
+        );
+
+        $merged = array_merge($priorIterations, $iterations);
+        $normalized = $merged === [] ? null : $merged;
+
+        if (! $this->usage instanceof Usage) {
+            $this->usage = new Usage(
+                promptTokens: 0,
+                completionTokens: 0,
+                iterations: $normalized,
+            );
+
+            return $this;
+        }
+
+        $this->usage = new Usage(
+            promptTokens: $this->usage->promptTokens,
+            completionTokens: $this->usage->completionTokens,
+            cacheWriteInputTokens: $this->usage->cacheWriteInputTokens,
+            cacheReadInputTokens: $this->usage->cacheReadInputTokens,
+            thoughtTokens: $this->usage->thoughtTokens,
+            iterations: $normalized,
         );
 
         return $this;
@@ -419,5 +482,18 @@ class StreamState
         $this->currentBlockType = null;
 
         return $this;
+    }
+    /**
+     * @param  array<int, UsageIteration>|null  $existing
+     * @param  array<int, UsageIteration>|null  $incoming
+     * @return array<int, UsageIteration>|null
+     */
+    protected static function mergeIterations(?array $existing, ?array $incoming): ?array
+    {
+        if ($existing === null && $incoming === null) {
+            return null;
+        }
+
+        return array_merge($existing ?? [], $incoming ?? []);
     }
 }

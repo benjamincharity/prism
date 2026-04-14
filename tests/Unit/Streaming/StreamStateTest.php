@@ -6,6 +6,7 @@ use Prism\Prism\Enums\FinishReason;
 use Prism\Prism\Streaming\StreamState;
 use Prism\Prism\ValueObjects\MessagePartWithCitations;
 use Prism\Prism\ValueObjects\Usage;
+use Prism\Prism\ValueObjects\UsageIteration;
 
 it('constructs with default empty state', function (): void {
     $state = new StreamState;
@@ -662,4 +663,125 @@ it('preserves tool call indices correctly', function (): void {
         2 => ['id' => 'call-2'],
         10 => ['id' => 'call-10'],
     ]);
+});
+
+it('addUsage concatenates usage iterations across steps', function (): void {
+    $state = new StreamState;
+
+    $state->addUsage(new Usage(
+        promptTokens: 100,
+        completionTokens: 50,
+        iterations: [new UsageIteration('message', 100, 50)],
+    ));
+
+    $state->addUsage(new Usage(
+        promptTokens: 200,
+        completionTokens: 75,
+        iterations: [
+            new UsageIteration('message', 150, 60),
+            new UsageIteration('advisor_message', 50, 15),
+        ],
+    ));
+
+    $usage = $state->usage();
+
+    expect($usage)->not->toBeNull()
+        ->and($usage->promptTokens)->toBe(300)
+        ->and($usage->completionTokens)->toBe(125)
+        ->and($usage->iterations)->toHaveCount(3)
+        ->and($usage->iterations[0]->type)->toBe('message')
+        ->and($usage->iterations[0]->inputTokens)->toBe(100)
+        ->and($usage->iterations[1]->type)->toBe('message')
+        ->and($usage->iterations[1]->inputTokens)->toBe(150)
+        ->and($usage->iterations[2]->type)->toBe('advisor_message')
+        ->and($usage->iterations[2]->inputTokens)->toBe(50);
+});
+
+it('addUsage leaves iterations null when neither side has them', function (): void {
+    $state = new StreamState;
+
+    $state->addUsage(new Usage(promptTokens: 100, completionTokens: 50));
+    $state->addUsage(new Usage(promptTokens: 200, completionTokens: 75));
+
+    expect($state->usage()->iterations)->toBeNull();
+});
+
+it('addUsage preserves iterations from prior step when new step has none', function (): void {
+    $state = new StreamState;
+
+    $state->addUsage(new Usage(
+        promptTokens: 100,
+        completionTokens: 50,
+        iterations: [new UsageIteration('message', 100, 50)],
+    ));
+    $state->addUsage(new Usage(promptTokens: 200, completionTokens: 75));
+
+    expect($state->usage()->iterations)->toHaveCount(1)
+        ->and($state->usage()->iterations[0]->inputTokens)->toBe(100);
+});
+
+it('setCurrentStepIterations replaces iterations for the current step only', function (): void {
+    $state = new StreamState;
+
+    // Simulate step 1: partial iterations from message_start, final from message_delta.
+    $state->markCurrentStepIterationsOffset();
+    $state->setCurrentStepIterations([
+        new UsageIteration('message', 100, 10),
+    ]);
+    $state->setCurrentStepIterations([
+        new UsageIteration('message', 100, 55),
+        new UsageIteration('advisor_message', 40, 20),
+    ]);
+
+    expect($state->usage()->iterations)->toHaveCount(2)
+        ->and($state->usage()->iterations[1]->type)->toBe('advisor_message');
+
+    // Simulate step 2: new offset captures the 2 committed iterations.
+    $state->markCurrentStepIterationsOffset();
+    $state->setCurrentStepIterations([
+        new UsageIteration('message', 75, 30),
+    ]);
+
+    expect($state->usage()->iterations)->toHaveCount(3)
+        ->and($state->usage()->iterations[0]->type)->toBe('message')
+        ->and($state->usage()->iterations[0]->outputTokens)->toBe(55)
+        ->and($state->usage()->iterations[1]->type)->toBe('advisor_message')
+        ->and($state->usage()->iterations[2]->type)->toBe('message')
+        ->and($state->usage()->iterations[2]->outputTokens)->toBe(30);
+
+    // A subsequent replace for step 2 should overwrite only step 2's entry.
+    $state->setCurrentStepIterations([
+        new UsageIteration('message', 75, 45),
+        new UsageIteration('advisor_message', 20, 5),
+    ]);
+
+    expect($state->usage()->iterations)->toHaveCount(4)
+        ->and($state->usage()->iterations[2]->outputTokens)->toBe(45)
+        ->and($state->usage()->iterations[3]->type)->toBe('advisor_message');
+});
+
+it('setCurrentStepIterations preserves token counts on existing usage', function (): void {
+    $state = new StreamState;
+
+    $state->withUsage(new Usage(
+        promptTokens: 500,
+        completionTokens: 200,
+        cacheWriteInputTokens: 10,
+        cacheReadInputTokens: 20,
+        thoughtTokens: 30,
+    ));
+
+    $state->markCurrentStepIterationsOffset();
+    $state->setCurrentStepIterations([
+        new UsageIteration('message', 450, 180),
+        new UsageIteration('advisor_message', 50, 20),
+    ]);
+
+    $usage = $state->usage();
+    expect($usage->promptTokens)->toBe(500)
+        ->and($usage->completionTokens)->toBe(200)
+        ->and($usage->cacheWriteInputTokens)->toBe(10)
+        ->and($usage->cacheReadInputTokens)->toBe(20)
+        ->and($usage->thoughtTokens)->toBe(30)
+        ->and($usage->iterations)->toHaveCount(2);
 });

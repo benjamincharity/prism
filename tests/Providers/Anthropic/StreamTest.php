@@ -103,6 +103,7 @@ it('can return usage with a basic stream', function (): void {
         'cacheWriteInputTokens' => 0,
         'cacheReadInputTokens' => 0,
         'thoughtTokens' => null,
+        'iterations' => null,
     ]);
 
     // Verify the HTTP request
@@ -112,6 +113,43 @@ it('can return usage with a basic stream', function (): void {
         return $request->url() === 'https://api.anthropic.com/v1/messages'
             && $body['stream'] === true;
     });
+});
+
+it('exposes advisor usage iterations from a stream', function (): void {
+    FixtureResponse::fakeStreamResponses('v1/messages', 'anthropic/stream-with-advisor-iterations');
+
+    $response = Prism::text()
+        ->using('anthropic', 'claude-sonnet-4-5')
+        ->withPrompt('Research question')
+        ->asStream();
+
+    $events = [];
+    foreach ($response as $event) {
+        $events[] = $event;
+    }
+
+    $lastEvent = end($events);
+    expect($lastEvent)->toBeInstanceOf(StreamEndEvent::class);
+
+    $usage = $lastEvent->usage;
+
+    expect($usage->promptTokens)->toBe(3500)
+        ->and($usage->completionTokens)->toBe(800)
+        ->and($usage->cacheReadInputTokens)->toBe(2000);
+
+    expect($usage->iterations)->toHaveCount(2);
+
+    // The final message_delta carries the complete per-iteration breakdown,
+    // replacing the partial data reported in message_start.
+    expect($usage->iterations[0]->type)->toBe('message')
+        ->and($usage->iterations[0]->inputTokens)->toBe(2800)
+        ->and($usage->iterations[0]->outputTokens)->toBe(650)
+        ->and($usage->iterations[0]->cacheReadInputTokens)->toBe(2000);
+
+    expect($usage->iterations[1]->type)->toBe('advisor_message')
+        ->and($usage->iterations[1]->inputTokens)->toBe(700)
+        ->and($usage->iterations[1]->outputTokens)->toBe(150)
+        ->and($usage->iterations[1]->cacheReadInputTokens)->toBe(0);
 });
 
 describe('tools', function (): void {

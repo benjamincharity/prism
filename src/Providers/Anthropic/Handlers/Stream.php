@@ -132,12 +132,22 @@ class Stream
 
         $usageData = $message['usage'] ?? [];
         if (! empty($usageData)) {
+            // Iterations are managed per-step so later message_delta events can
+            // replace the current step's entries without summing with the
+            // partial data reported in message_start.
+            $this->state->markCurrentStepIterationsOffset();
+
             $this->state->addUsage(new Usage(
                 promptTokens: $usageData['input_tokens'] ?? 0,
                 completionTokens: $usageData['output_tokens'] ?? 0,
                 cacheWriteInputTokens: $usageData['cache_creation_input_tokens'] ?? null,
-                cacheReadInputTokens: $usageData['cache_read_input_tokens'] ?? null
+                cacheReadInputTokens: $usageData['cache_read_input_tokens'] ?? null,
             ));
+
+            $partialIterations = Text::parseUsageIterations($usageData['iterations'] ?? null);
+            if ($partialIterations !== null) {
+                $this->state->setCurrentStepIterations($partialIterations);
+            }
         }
 
         // Only emit StreamStartEvent once per streaming session
@@ -243,8 +253,16 @@ class Stream
                 promptTokens: $currentUsage->promptTokens,
                 completionTokens: $usageData['output_tokens'],
                 cacheWriteInputTokens: $currentUsage->cacheWriteInputTokens,
-                cacheReadInputTokens: $currentUsage->cacheReadInputTokens
+                cacheReadInputTokens: $currentUsage->cacheReadInputTokens,
+                iterations: $currentUsage->iterations,
             ));
+        }
+
+        // message_delta carries the final, complete usage.iterations array for
+        // this step; it replaces any partial data stored during message_start.
+        $finalIterations = Text::parseUsageIterations($usageData['iterations'] ?? null);
+        if ($finalIterations !== null) {
+            $this->state->setCurrentStepIterations($finalIterations);
         }
 
         return null;

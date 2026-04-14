@@ -33,6 +33,7 @@ use Prism\Prism\ValueObjects\ProviderTool;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
+use Prism\Prism\ValueObjects\UsageIteration;
 
 class Text
 {
@@ -91,6 +92,29 @@ class Text
             'mcp_servers' => $request->providerOptions('mcp_servers'),
             'cache_control' => $request->providerOptions('cache_control'),
         ]);
+    }
+    /**
+     * Parse Anthropic's `usage.iterations[]` array (present when the advisor
+     * tool or other multi-model flows are used) into UsageIteration objects.
+     *
+     * @param  mixed  $rawIterations
+     * @return array<int, UsageIteration>|null
+     */
+    public static function parseUsageIterations($rawIterations): ?array
+    {
+        if (! is_array($rawIterations) || $rawIterations === []) {
+            return null;
+        }
+
+        $iterations = [];
+        foreach ($rawIterations as $entry) {
+            if (! is_array($entry)) {
+                continue;
+            }
+            $iterations[] = UsageIteration::fromArray($entry);
+        }
+
+        return $iterations === [] ? null : $iterations;
     }
 
     protected function handleToolCalls(): Response
@@ -160,7 +184,8 @@ class Text
                 promptTokens: data_get($data, 'usage.input_tokens'),
                 completionTokens: data_get($data, 'usage.output_tokens'),
                 cacheWriteInputTokens: data_get($data, 'usage.cache_creation_input_tokens'),
-                cacheReadInputTokens: data_get($data, 'usage.cache_read_input_tokens')
+                cacheReadInputTokens: data_get($data, 'usage.cache_read_input_tokens'),
+                iterations: self::parseUsageIterations(data_get($data, 'usage.iterations')),
             ),
             meta: new Meta(
                 id: data_get($data, 'id'),

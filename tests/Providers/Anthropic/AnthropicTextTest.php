@@ -229,6 +229,44 @@ it('can calculate cache usage correctly', function (): void {
     expect($response->usage->cacheReadInputTokens)->ToBe(100);
 });
 
+it('exposes usage iterations from the advisor tool', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-advisor-iterations');
+
+    $response = Prism::text()
+        ->using('anthropic', 'claude-sonnet-4-5')
+        ->withPrompt('Research question')
+        ->asText();
+
+    expect($response->usage->promptTokens)->toBe(3500);
+    expect($response->usage->completionTokens)->toBe(800);
+    expect($response->usage->cacheReadInputTokens)->toBe(2000);
+
+    expect($response->usage->iterations)->toHaveCount(2);
+
+    $executor = $response->usage->iterations[0];
+    expect($executor->type)->toBe('message')
+        ->and($executor->inputTokens)->toBe(2800)
+        ->and($executor->outputTokens)->toBe(650)
+        ->and($executor->cacheReadInputTokens)->toBe(2000);
+
+    $advisor = $response->usage->iterations[1];
+    expect($advisor->type)->toBe('advisor_message')
+        ->and($advisor->inputTokens)->toBe(700)
+        ->and($advisor->outputTokens)->toBe(150)
+        ->and($advisor->cacheReadInputTokens)->toBe(0);
+});
+
+it('returns null iterations for Anthropic responses without them', function (): void {
+    FixtureResponse::fakeResponseSequence('v1/messages', 'anthropic/generate-text-with-a-prompt');
+
+    $response = Prism::text()
+        ->using('anthropic', 'claude-3-5-sonnet-20240620')
+        ->withPrompt('Who are you?')
+        ->asText();
+
+    expect($response->usage->iterations)->toBeNull();
+});
+
 it('adds rate limit data to the responseMeta', function (): void {
     $requests_reset = Carbon::now()->addSeconds(30);
 

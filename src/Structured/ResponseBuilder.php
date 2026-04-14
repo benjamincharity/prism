@@ -136,6 +136,12 @@ readonly class ResponseBuilder
             thoughtTokens: $this->steps->contains(fn (Step $result): bool => $result->usage->thoughtTokens !== null)
                 ? $this->steps->sum(fn (Step $result): int => $result->usage->thoughtTokens ?? 0)
                 : null,
+            iterations: $this->steps->contains(fn (Step $result): bool => $result->usage->iterations !== null)
+                ? $this->steps->reduce(
+                    fn (array $carry, Step $result): array => array_merge($carry, $result->usage->iterations ?? []),
+                    []
+                )
+                : null,
         );
     }
 }

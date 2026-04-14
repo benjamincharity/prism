@@ -9,6 +9,7 @@ use Prism\Prism\Enums\StreamEventType;
 use Prism\Prism\ValueObjects\Citation;
 use Prism\Prism\ValueObjects\MessagePartWithCitations;
 use Prism\Prism\ValueObjects\Usage;
+use Prism\Prism\ValueObjects\UsageIteration;
 
 readonly class StreamEndEvent extends StreamEvent
 {
@@ -48,6 +49,10 @@ readonly class StreamEndEvent extends StreamEvent
                 'cache_write_input_tokens' => $this->usage->cacheWriteInputTokens,
                 'cache_read_input_tokens' => $this->usage->cacheReadInputTokens,
                 'thought_tokens' => $this->usage->thoughtTokens,
+                'iterations' => $this->usage->iterations === null ? null : array_map(
+                    fn (UsageIteration $iteration): array => $iteration->toArray(),
+                    $this->usage->iterations,
+                ),
             ] : null,
             'citations' => $this->citations !== null ? array_map(
                 fn (MessagePartWithCitations $citationPart): array => [
