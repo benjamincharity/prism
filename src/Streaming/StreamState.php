@@ -483,6 +483,7 @@ class StreamState
 
         return $this;
     }
+
     /**
      * @param  array<int, UsageIteration>|null  $existing
      * @param  array<int, UsageIteration>|null  $incoming

@@ -93,6 +93,7 @@ class Text
             'cache_control' => $request->providerOptions('cache_control'),
         ]);
     }
+
     /**
      * Parse Anthropic's `usage.iterations[]` array (present when the advisor
      * tool or other multi-model flows are used) into UsageIteration objects.
