@@ -37,6 +37,7 @@ use Prism\Prism\ValueObjects\Messages\AssistantMessage;
 use Prism\Prism\ValueObjects\Messages\ToolResultMessage;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\Usage;
+use Prism\Prism\ValueObjects\UsageIteration;
 use Psr\Http\Message\StreamInterface;
 use Throwable;
 
@@ -132,9 +133,6 @@ class Stream
 
         $usageData = $message['usage'] ?? [];
         if (! empty($usageData)) {
-            // Iterations are managed per-step so later message_delta events can
-            // replace the current step's entries without summing with the
-            // partial data reported in message_start.
             $this->state->markCurrentStepIterationsOffset();
 
             $this->state->addUsage(new Usage(
@@ -144,7 +142,7 @@ class Stream
                 cacheReadInputTokens: $usageData['cache_read_input_tokens'] ?? null,
             ));
 
-            $partialIterations = Text::parseUsageIterations($usageData['iterations'] ?? null);
+            $partialIterations = UsageIteration::fromIterationsArray($usageData['iterations'] ?? null);
             if ($partialIterations !== null) {
                 $this->state->setCurrentStepIterations($partialIterations);
             }
@@ -258,9 +256,8 @@ class Stream
             ));
         }
 
-        // message_delta carries the final, complete usage.iterations array for
-        // this step; it replaces any partial data stored during message_start.
-        $finalIterations = Text::parseUsageIterations($usageData['iterations'] ?? null);
+        // Replace partial iterations from message_start with the final array
+        $finalIterations = UsageIteration::fromIterationsArray($usageData['iterations'] ?? null);
         if ($finalIterations !== null) {
             $this->state->setCurrentStepIterations($finalIterations);
         }

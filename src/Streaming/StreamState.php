@@ -44,12 +44,6 @@ class StreamState
 
     protected ?Usage $usage = null;
 
-    /**
-     * Length of the usage.iterations array captured at the start of the
-     * current streaming step. Used so a provider's per-step "replace" of
-     * iterations (e.g. Anthropic's message_delta) can overwrite only the
-     * current step's entries while preserving iterations from prior steps.
-     */
     protected int $currentStepIterationsOffset = 0;
 
     protected ?FinishReason $finishReason = null;
@@ -261,11 +255,6 @@ class StreamState
         return $this;
     }
 
-    /**
-     * Capture the current length of usage.iterations so a subsequent call to
-     * setCurrentStepIterations() knows where the current step's entries start.
-     * Call once per provider "step" before storing any iterations for that step.
-     */
     public function markCurrentStepIterationsOffset(): self
     {
         $existing = $this->usage instanceof Usage ? ($this->usage->iterations ?? []) : [];
@@ -275,9 +264,6 @@ class StreamState
     }
 
     /**
-     * Replace the iterations belonging to the current step with $iterations.
-     * Iterations from prior steps (before the captured offset) are preserved.
-     *
      * @param  array<int, UsageIteration>  $iterations
      */
     public function setCurrentStepIterations(array $iterations): self

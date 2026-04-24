@@ -36,6 +36,7 @@ use Prism\Prism\ValueObjects\ProviderTool;
 use Prism\Prism\ValueObjects\ToolCall;
 use Prism\Prism\ValueObjects\ToolResult;
 use Prism\Prism\ValueObjects\Usage;
+use Prism\Prism\ValueObjects\UsageIteration;
 
 class Structured
 {
@@ -338,7 +339,8 @@ class Structured
                 promptTokens: data_get($data, 'usage.input_tokens'),
                 completionTokens: data_get($data, 'usage.output_tokens'),
                 cacheWriteInputTokens: data_get($data, 'usage.cache_creation_input_tokens'),
-                cacheReadInputTokens: data_get($data, 'usage.cache_read_input_tokens')
+                cacheReadInputTokens: data_get($data, 'usage.cache_read_input_tokens'),
+                iterations: UsageIteration::fromIterationsArray(data_get($data, 'usage.iterations')),
             ),
             meta: new Meta(
                 id: data_get($data, 'id'),

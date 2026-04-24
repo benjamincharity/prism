@@ -61,6 +61,31 @@ it('fromArray treats missing fields as zero and empty type', function (): void {
         ->and($iteration->cacheWriteInputTokens)->toBe(0);
 });
 
+it('fromIterationsArray parses a raw array of iteration entries', function (): void {
+    $result = UsageIteration::fromIterationsArray([
+        ['type' => 'message', 'input_tokens' => 2800, 'output_tokens' => 650, 'cache_read_input_tokens' => 2000],
+        ['type' => 'advisor_message', 'input_tokens' => 700, 'output_tokens' => 150],
+    ]);
+
+    expect($result)->toHaveCount(2)
+        ->and($result[0]->type)->toBe('message')
+        ->and($result[0]->inputTokens)->toBe(2800)
+        ->and($result[1]->type)->toBe('advisor_message')
+        ->and($result[1]->inputTokens)->toBe(700);
+});
+
+it('fromIterationsArray returns null for null input', function (): void {
+    expect(UsageIteration::fromIterationsArray(null))->toBeNull();
+});
+
+it('fromIterationsArray returns null for empty array', function (): void {
+    expect(UsageIteration::fromIterationsArray([]))->toBeNull();
+});
+
+it('fromIterationsArray returns null for non-array input', function (): void {
+    expect(UsageIteration::fromIterationsArray('string'))->toBeNull();
+});
+
 it('toArray serializes all fields', function (): void {
     $iteration = new UsageIteration(
         type: 'advisor_message',

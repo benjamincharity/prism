@@ -7,10 +7,6 @@ namespace Prism\Prism\ValueObjects;
 use Illuminate\Contracts\Support\Arrayable;
 
 /**
- * Per-model token breakdown for a single inference within a multi-model
- * provider response (e.g. Anthropic's advisor tool, where the executor and
- * advisor models consume tokens independently).
- *
  * @implements Arrayable<string, mixed>
  */
 readonly class UsageIteration implements Arrayable
@@ -35,6 +31,26 @@ readonly class UsageIteration implements Arrayable
             cacheReadInputTokens: (int) ($data['cache_read_input_tokens'] ?? 0),
             cacheWriteInputTokens: (int) ($data['cache_creation_input_tokens'] ?? 0),
         );
+    }
+
+    /**
+     * @return array<int, self>|null
+     */
+    public static function fromIterationsArray(mixed $rawIterations): ?array
+    {
+        if (! is_array($rawIterations) || $rawIterations === []) {
+            return null;
+        }
+
+        $iterations = [];
+        foreach ($rawIterations as $entry) {
+            if (! is_array($entry)) {
+                continue;
+            }
+            $iterations[] = self::fromArray($entry);
+        }
+
+        return $iterations === [] ? null : $iterations;
     }
 
     /**
