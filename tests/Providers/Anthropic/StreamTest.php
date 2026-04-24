@@ -139,8 +139,6 @@ it('exposes advisor usage iterations from a stream', function (): void {
 
     expect($usage->iterations)->toHaveCount(2);
 
-    // The final message_delta carries the complete per-iteration breakdown,
-    // replacing the partial data reported in message_start.
     expect($usage->iterations[0]->type)->toBe('message')
         ->and($usage->iterations[0]->inputTokens)->toBe(2800)
         ->and($usage->iterations[0]->outputTokens)->toBe(650)

@@ -256,7 +256,6 @@ class Stream
             ));
         }
 
-        // Replace partial iterations from message_start with the final array
         $finalIterations = UsageIteration::fromIterationsArray($usageData['iterations'] ?? null);
         if ($finalIterations !== null) {
             $this->state->setCurrentStepIterations($finalIterations);

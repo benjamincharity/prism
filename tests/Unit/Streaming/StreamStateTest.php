@@ -723,7 +723,6 @@ it('addUsage preserves iterations from prior step when new step has none', funct
 it('setCurrentStepIterations replaces iterations for the current step only', function (): void {
     $state = new StreamState;
 
-    // Simulate step 1: partial iterations from message_start, final from message_delta.
     $state->markCurrentStepIterationsOffset();
     $state->setCurrentStepIterations([
         new UsageIteration('message', 100, 10),
@@ -736,7 +735,6 @@ it('setCurrentStepIterations replaces iterations for the current step only', fun
     expect($state->usage()->iterations)->toHaveCount(2)
         ->and($state->usage()->iterations[1]->type)->toBe('advisor_message');
 
-    // Simulate step 2: new offset captures the 2 committed iterations.
     $state->markCurrentStepIterationsOffset();
     $state->setCurrentStepIterations([
         new UsageIteration('message', 75, 30),
@@ -749,7 +747,6 @@ it('setCurrentStepIterations replaces iterations for the current step only', fun
         ->and($state->usage()->iterations[2]->type)->toBe('message')
         ->and($state->usage()->iterations[2]->outputTokens)->toBe(30);
 
-    // A subsequent replace for step 2 should overwrite only step 2's entry.
     $state->setCurrentStepIterations([
         new UsageIteration('message', 75, 45),
         new UsageIteration('advisor_message', 20, 5),
